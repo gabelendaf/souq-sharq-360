@@ -301,9 +301,36 @@ function pitchLocal(m, p) {
   const c = Math.cos(p), s = Math.sin(p);
   return [m[0], [0,1,2].map(i => c*m[1][i] + s*m[2][i]), [0,1,2].map(i => c*m[2][i] - s*m[1][i])];
 }
+/* Giro de la interfaz respecto a la posición natural (vertical) del iPad.
+   En iPad, screen.orientation.angle no siempre es fiable: se usa window.orientation
+   y, si aun así no cuadra con la forma de la pantalla, se deduce de la gravedad. */
+const IS_IOS = !!(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')
+            || /iPad|iPhone|iPod/.test(navigator.userAgent)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let scrFix = null;
+const resetScrFix = () => { scrFix = null; };
+addEventListener('orientationchange', resetScrFix);
+if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', resetScrFix);
+function norm(a) { a = ((Math.round(a) % 360) + 360) % 360; return a === 270 ? -90 : a; }
+function inferAngle(landscape) {
+  const o = S.ori; if (!o) return null;
+  const R = deviceToWorld(o.a, o.b, o.g, 0);          // ejes del dispositivo sin compensar
+  const xz = R[0][2], yz = R[1][2];                    // cuánto apunta hacia arriba cada eje
+  if (landscape) return Math.abs(xz) < 0.4 ? null : (xz > 0 ? 90 : -90);
+  return Math.abs(yz) < 0.4 ? null : (yz > 0 ? 0 : 180);
+}
 function screenAngle() {
-  if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
-  return typeof window.orientation === 'number' ? window.orientation : 0;
+  let a = typeof window.orientation === 'number' ? window.orientation
+        : (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : 0;
+  a = norm(a);
+  if (IS_IOS) {
+    const landscapeLayout = innerWidth > innerHeight;
+    if (landscapeLayout !== (Math.abs(a) === 90)) {
+      if (scrFix === null) scrFix = inferAngle(landscapeLayout);
+      if (scrFix !== null) a = scrFix;
+    } else scrFix = null;
+  }
+  return a;
 }
 function baseCols() {
   return (S.sensorOn && S.ori) ? deviceToWorld(S.ori.a, S.ori.b, S.ori.g, screenAngle()) : LEVEL;
