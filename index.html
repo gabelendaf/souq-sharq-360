@@ -97,6 +97,15 @@
     pointer-events:auto;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.1)}
   #settingsBtn svg{width:calc(30px*var(--s));height:calc(18px*var(--s))}
   #settingsBtn:active{background:rgba(210,210,210,.85)}
+  #nightBtn{position:absolute;top:calc(93px*var(--s) + env(safe-area-inset-top));right:calc(70.5px*var(--s) + env(safe-area-inset-right));
+    width:calc(65.5px*var(--s));height:calc(65.5px*var(--s));border-radius:calc(16px*var(--s));pointer-events:auto;
+    background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,.14));border:1px solid rgba(255,255,255,.45);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    box-shadow:0 1px 6px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.35);transition:background .3s}
+  #nightBtn svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
+  #nightBtn.on{background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,.24))}
+  #nightBtn:active{background:rgba(255,255,255,.45)}
+  #nightBtn::after{content:"";position:absolute;inset:-10px}
   #settingsBtn::after{content:"";position:absolute;inset:-12px}
 
   /* iPhone en horizontal: los controles dejan sitio al logo VCO de la esquina */
@@ -139,6 +148,13 @@
 
 <!-- ================= 3 · VER ================= -->
 <section id="view" class="screen">
+  <button id="nightBtn" type="button" aria-label="Day / night">
+    <svg viewBox="0 0 260 260" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M72 50 A95 95 0 1 0 211 170 A88 88 0 0 1 72 50 Z"/>
+      <circle cx="158" cy="104" r="25"/>
+      <path d="M158 62v-14M158 146v14M200 104h14M116 104h-14M188 74l10-10M188 134l10 10M128 74l-10-10"/>
+    </svg>
+  </button>
   <button id="settingsBtn" type="button" aria-label="Settings">
     <svg viewBox="0 0 40 24" fill="none" stroke="#8c8c8c" stroke-width="2" stroke-linecap="round">
       <line x1="7" y1="5" x2="33" y2="5"/><line x1="7" y1="12" x2="33" y2="12"/><line x1="7" y1="19" x2="33" y2="19"/>
@@ -161,14 +177,14 @@
    ===================================================================== */
 const CONFIG = {
   images: [
-    { name: '01', src: 'panorama_01.jpg', rotation: 0 },
-    { name: '02', src: 'panorama_02.jpg', rotation: 0 },
+    { name: '01', src: 'panorama_01.jpg', night: 'panorama_01_NIGHT.jpg', rotation: 0 },
+    { name: '02', src: 'panorama_02.jpg', night: 'panorama_02_NIGHT.jpg', rotation: 0 },
   ],
   fov:        { default: 60, min: 20, max: 120, perTick: 1 },
   opacityAdjust: 0.5,      // opacidad de la imagen en la pantalla de ajustes
   adjustBackground: 1,     // fondo bajo la imagen en ajustes: 1 = blanco, 0 = negro
   fadeColor: 1,            // color de los fundidos: 1 = blanco, 0 = negro
-  t: { hideStart: 250, logoOpen: 500, toBlack: 500, adjustIn: 500, imageFade: 500, toView: 400 },
+  t: { hideStart: 250, logoOpen: 500, toBlack: 500, adjustIn: 500, imageFade: 500, toView: 400, dayNight: 1000 },
   designSize: [1376, 1032],  // iPad Pro 13" en horizontal
 };
 
@@ -232,7 +248,9 @@ if (!gl) { $('startMsg').textContent = 'This browser does not support WebGL.'; r
 const VS = GL2 ? '#version 300 es\nin vec2 aPos;void main(){gl_Position=vec4(aPos,0.,1.);}'
                : 'attribute vec2 aPos;void main(){gl_Position=vec4(aPos,0.,1.);}';
 const FS_COMMON = `
-uniform sampler2D uTex;
+uniform sampler2D uTex;     // día
+uniform sampler2D uTex2;    // noche
+uniform float uMix;         // 0 = día, 1 = noche
 uniform mat3 uRot;     // cámara -> mundo (x=Este, y=Norte, z=Arriba)
 uniform vec2 uTan;     // tan(fovH/2), tan(fovV/2)
 uniform float uYaw;    // giro del render (rad)
@@ -256,9 +274,14 @@ void main(){
   vec2 uv = dirToUV();
   vec2 dx = dFdx(uv), dy = dFdy(uv);
   dx.x -= floor(dx.x + 0.5); dy.x -= floor(dy.x + 0.5);   // evita la costura vertical
-  outColor = vec4(mix(vec3(uFadeC), mix(vec3(uBg), textureGrad(uTex, uv, dx, dy).rgb, uOpacity), uLevel), 1.0);
+  vec3 c = mix(textureGrad(uTex, uv, dx, dy).rgb, textureGrad(uTex2, uv, dx, dy).rgb, uMix);
+  outColor = vec4(mix(vec3(uFadeC), mix(vec3(uBg), c, uOpacity), uLevel), 1.0);
 }` : `precision highp float;${FS_COMMON}
-void main(){ gl_FragColor = vec4(mix(vec3(uFadeC), mix(vec3(uBg), texture2D(uTex, dirToUV()).rgb, uOpacity), uLevel), 1.0); }`;
+void main(){
+  vec2 uv = dirToUV();
+  vec3 c = mix(texture2D(uTex, uv).rgb, texture2D(uTex2, uv).rgb, uMix);
+  gl_FragColor = vec4(mix(vec3(uFadeC), mix(vec3(uBg), c, uOpacity), uLevel), 1.0);
+}`;
 
 function sh(type, src) {
   const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -272,13 +295,13 @@ gl.bindAttribLocation(prog, 0, 'aPos');
 gl.linkProgram(prog);
 gl.useProgram(prog);
 const U = {};
-['uTex','uRot','uTan','uYaw','uRes','uOpacity','uBg','uLevel','uFadeC'].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+['uTex','uTex2','uMix','uRot','uTan','uYaw','uRes','uOpacity','uBg','uLevel','uFadeC'].forEach(n => U[n] = gl.getUniformLocation(prog, n));
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
 gl.enableVertexAttribArray(0);
 gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 gl.uniform1i(U.uTex, 0);
-gl.activeTexture(gl.TEXTURE0);
+gl.uniform1i(U.uTex2, 1);
 
 function makeTexture(src) {
   const tex = gl.createTexture();
@@ -300,8 +323,35 @@ function makeTexture(src) {
 }
 
 /* ================= Carga de los renders ================= */
-const textures = [];                 // una textura por imagen (se comparten si el archivo es el mismo)
-const bySrc = {};
+/* Para no agotar la memoria con renders de 8K, solo se mantiene cargado el par
+   día/noche del render que se está viendo; el resto se libera. */
+const cache = {};                    // src -> Promise<WebGLTexture>
+const ready = {};                    // src -> WebGLTexture (cuando ya está cargada)
+function getTex(src) {
+  if (!src) return Promise.resolve(null);
+  if (!cache[src]) {
+    cache[src] = loadImage(src).then(t => (ready[src] = t));
+    cache[src].catch(() => {});
+  }
+  return cache[src];
+}
+function ensurePair(i) {
+  const im = CONFIG.images[i];
+  const day = getTex(im.src).catch(() => {
+    $('startMsg').textContent = `Could not load “${im.src}”. Check that it is uploaded next to index.html.`;
+    return null;
+  });
+  const night = getTex(im.night).catch(() => null);   // si no hay noche, el botón avisa
+  return Promise.all([day, night]);
+}
+function releaseOthers(i) {
+  const keep = [CONFIG.images[i].src, CONFIG.images[i].night];
+  Object.keys(cache).forEach(src => {
+    if (keep.includes(src)) return;
+    if (ready[src]) gl.deleteTexture(ready[src]);
+    delete ready[src]; delete cache[src];
+  });
+}
 async function loadImage(src) {
   const img = new Image();
   if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous';
@@ -319,13 +369,7 @@ async function loadImage(src) {
   }
   return makeTexture(out);
 }
-function loadAll() {
-  CONFIG.images.forEach((im, i) => {
-    bySrc[im.src] = bySrc[im.src] || loadImage(im.src);
-    bySrc[im.src].then(t => { textures[i] = t; })
-      .catch(() => { $('startMsg').textContent = `Could not load “${im.src}”. Check that it is uploaded next to index.html.`; });
-  });
-}
+function loadAll() { ensurePair(P.img); }
 
 /* ================= Orientación del dispositivo ================= */
 function deviceToWorld(a, b, g, scr) {
@@ -429,7 +473,10 @@ function showImage(i) {
     if (i !== S.shown) {
       await animTo({lvl: 0}, CONFIG.t.imageFade);
       if (g !== gen) return;
+      await ensurePair(i);
+      if (g !== gen) return;
       S.shown = i;
+      releaseOthers(i);
       S.look.op = opFor(S.screen);
       await animTo({lvl: 1}, CONFIG.t.imageFade);
     } else {
@@ -438,6 +485,26 @@ function showImage(i) {
   });
   return queue;
 }
+
+/* ================= Día / noche ================= */
+S.night = false; S.mix = 0;
+let mixAnim = null;
+function stepMix(now) {
+  if (!mixAnim) return;
+  const a = mixAnim, k = Math.min(1, (now - a.t0) / a.ms);
+  const e = k < .5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2) / 2;
+  S.mix = a.from + (a.to - a.from) * e;
+  if (k >= 1) mixAnim = null;
+}
+async function toggleNight() {
+  const im = CONFIG.images[S.shown];
+  const nightTex = await getTex(im.night).catch(() => null);
+  if (!nightTex) { toast('Night image not available'); return; }
+  S.night = !S.night;
+  mixAnim = {from: S.mix, to: S.night ? 1 : 0, t0: performance.now(), ms: CONFIG.t.dayNight};
+  $('nightBtn').classList.toggle('on', S.night);
+}
+$('nightBtn').addEventListener('click', toggleNight);
 
 /* ================= Pantallas ================= */
 let snapshot = null;
@@ -473,6 +540,7 @@ $('startBtn').addEventListener('click', async () => {
   const ok = await motion;
   calibrate();
   S.shown = P.img;
+  ensurePair(P.img);
   openAdjust();
   if (!ok) toast('Motion sensors unavailable · drag to look around');
   else setTimeout(() => { if (!S.sensorOn) toast('No gyroscope data · drag to look around'); }, 1500);
@@ -485,6 +553,7 @@ function goHome() {
   S.look = { op: CONFIG.opacityAdjust, lvl: 0 };
   gen++; queue = Promise.resolve();
   S.shown = P.img;
+  S.night = false; S.mix = 0; mixAnim = null; $('nightBtn').classList.remove('on');
   const st = $('start'), br = $('bracket'), le = $('letters');
   // devuelve el logo a su sitio sin animación
   [br, le].forEach(el => { el.style.transition = 'none'; el.style.transform = ''; });
@@ -612,14 +681,18 @@ addEventListener('resize', () => { updateScale(); resize(); renderDial(); });
 function frame(now) {
   requestAnimationFrame(frame);
   stepAnim(now);
+  stepMix(now);
   resize();
   gl.viewport(0, 0, canvas.width, canvas.height);
-  const tex = textures[S.shown];
+  const im = CONFIG.images[S.shown];
+  const tex = ready[im.src], texN = ready[im.night] || tex;
   if (S.screen === 'start' || !tex || S.look.lvl <= 0.001) { const c = CONFIG.fadeColor; gl.clearColor(c, c, c, 1); gl.clear(gl.COLOR_BUFFER_BIT); return; }
   const m = pitchLocal(rotZ(baseCols(), S.calibPhi + S.touchYaw), S.touchPitch);
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rot[i*3 + j] = m[i][j];
   const tv = Math.tan(P.fov * D2R / 2), asp = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texN);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.uniform1f(U.uMix, ready[im.night] ? S.mix : 0);
   gl.uniformMatrix3fv(U.uRot, false, rot);
   gl.uniform2f(U.uTan, tv * asp, tv);
   gl.uniform1f(U.uYaw, (CONFIG.images[S.shown].rotation || 0) * D2R);
