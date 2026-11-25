@@ -91,13 +91,13 @@
   #needle{position:absolute;left:50%;top:50%;width:calc(2px*var(--s));height:calc(37px*var(--s));transform:translate(-50%,-50%);background:#fff;border-radius:1px}
 
   /* ---------- 3 · VER ---------- */
-  #settingsBtn{position:absolute;left:50%;bottom:calc(21px*var(--s) + env(safe-area-inset-bottom));width:calc(55px*var(--s));height:calc(31px*var(--s));
-    transform:translateX(-50%);border-radius:calc(16px*var(--s));background:rgba(232,232,232,.78);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  #settingsBtn{position:absolute;left:50%;bottom:calc(21px*var(--s) + env(safe-area-inset-bottom));width:calc(60.5px*var(--s));height:calc(34px*var(--s));
+    transform:translateX(-50%);border-radius:calc(17.5px*var(--s));background:rgba(232,232,232,.78);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     pointer-events:auto;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.1)}
-  #settingsBtn svg{width:calc(30px*var(--s));height:calc(18px*var(--s))}
+  #settingsBtn svg{width:calc(33px*var(--s));height:calc(19.8px*var(--s))}
   #settingsBtn:active{background:rgba(210,210,210,.85)}
   #nightBtn{position:absolute;top:calc(93px*var(--sb) + env(safe-area-inset-top));right:calc(70.5px*var(--s) + env(safe-area-inset-right));
-    width:calc(65.5px*var(--sb));height:calc(65.5px*var(--sb));border-radius:calc(16px*var(--sb));pointer-events:auto;
+    width:calc(62.2px*var(--sb));height:calc(62.2px*var(--sb));border-radius:calc(15.2px*var(--sb));pointer-events:auto;
     background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,.14));border:1px solid rgba(255,255,255,.45);
     -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
     box-shadow:0 1px 6px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.35);transition:background .3s}
@@ -183,7 +183,7 @@
 const CONFIG = {
   /* Cambia este número cada vez que subas renders nuevos con el mismo nombre:
      obliga al iPad a descargarlos de nuevo en lugar de usar los guardados. */
-  version: 2,
+  version: 3,
   images: [
     { name: '01', src: 'panorama_01.jpg', night: 'panorama_01_NIGHT.jpg', rotation: 0 },
     { name: '02', src: 'panorama_02.jpg', night: 'panorama_02_NIGHT.jpg', rotation: 0 },
