@@ -113,6 +113,11 @@
   /* iPhone en vertical: los controles suben por encima del logo VCO */
   @media (max-width:560px){ :root{--lift:34px;--side:8px} }
 
+  #loading{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:calc(10px*var(--s)) calc(20px*var(--s));
+    border-radius:calc(18px*var(--s));background:rgba(0,0,0,.4);font-size:calc(15px*var(--s));letter-spacing:.1em;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:15;white-space:nowrap}
+  body.loading:not([data-s=start]) #loading{opacity:1}
+  body.loading #imgSel{visibility:hidden}
   #toast{position:fixed;left:50%;top:calc(120px*var(--s) + env(safe-area-inset-top));transform:translateX(-50%);padding:calc(8px*var(--s)) calc(16px*var(--s));
     border-radius:calc(16px*var(--s));background:rgba(0,0,0,.45);font-size:calc(14px*var(--s));letter-spacing:.08em;opacity:0;transition:opacity .4s;pointer-events:none;z-index:20;white-space:nowrap}
 </style>
@@ -164,6 +169,7 @@
 </section>
 
 <div id="toast"></div>
+<div id="loading">Loading image…</div>
 
 <script>
 (() => {
@@ -176,6 +182,9 @@
    - Los tiempos de las transiciones están en milisegundos.
    ===================================================================== */
 const CONFIG = {
+  /* Cambia este número cada vez que subas renders nuevos con el mismo nombre:
+     obliga al iPad a descargarlos de nuevo en lugar de usar los guardados. */
+  version: 2,
   images: [
     { name: '01', src: 'panorama_01.jpg', night: 'panorama_01_NIGHT.jpg', rotation: 0 },
     { name: '02', src: 'panorama_02.jpg', night: 'panorama_02_NIGHT.jpg', rotation: 0 },
@@ -341,7 +350,7 @@ function ensurePair(i) {
     $('startMsg').textContent = `Could not load “${im.src}”. Check that it is uploaded next to index.html.`;
     return null;
   });
-  const night = getTex(im.night).catch(() => null);   // si no hay noche, el botón avisa
+  const night = day.then(() => getTex(im.night)).catch(() => null);   // la noche, después del día
   return Promise.all([day, night]);
 }
 function releaseOthers(i) {
@@ -355,7 +364,7 @@ function releaseOthers(i) {
 async function loadImage(src) {
   const img = new Image();
   if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous';
-  img.src = src;
+  img.src = src + (src.includes('?') ? '&' : '?') + 'v=' + CONFIG.version;
   await (img.decode ? img.decode() : new Promise((r, j) => { img.onload = r; img.onerror = j; }));
   let out = img;
   const limit = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
@@ -498,6 +507,7 @@ function stepMix(now) {
 }
 async function toggleNight() {
   const im = CONFIG.images[S.shown];
+  if (im.night && !ready[im.night]) toast('Loading night image…');
   const nightTex = await getTex(im.night).catch(() => null);
   if (!nightTex) { toast('Night image not available'); return; }
   S.night = !S.night;
@@ -686,6 +696,7 @@ function frame(now) {
   gl.viewport(0, 0, canvas.width, canvas.height);
   const im = CONFIG.images[S.shown];
   const tex = ready[im.src], texN = ready[im.night] || tex;
+  document.body.classList.toggle('loading', !tex);
   if (S.screen === 'start' || !tex || S.look.lvl <= 0.001) { const c = CONFIG.fadeColor; gl.clearColor(c, c, c, 1); gl.clear(gl.COLOR_BUFFER_BIT); return; }
   const m = pitchLocal(rotZ(baseCols(), S.calibPhi + S.touchYaw), S.touchPitch);
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rot[i*3 + j] = m[i][j];
