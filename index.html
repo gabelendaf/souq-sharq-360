@@ -183,10 +183,10 @@
 const CONFIG = {
   /* Cambia este número cada vez que subas renders nuevos con el mismo nombre:
      obliga al iPad a descargarlos de nuevo en lugar de usar los guardados. */
-  version: 3,
+  version: 4,
   images: [
-    { name: '01', src: 'panorama_01.jpg', night: 'panorama_01_NIGHT.jpg', rotation: 0 },
-    { name: '02', src: 'panorama_02.jpg', night: 'panorama_02_NIGHT.jpg', rotation: 0 },
+    { name: '01', label: 'RING LEVEL',  src: 'panorama_01.jpg', night: 'panorama_01_NIGHT.jpg', rotation: 0 },
+    { name: '02', label: 'UPPER LEVEL', src: 'panorama_02.jpg', night: 'panorama_02_NIGHT.jpg', rotation: 0 },
   ],
   fov:        { default: 60, min: 20, max: 120, perTick: 1 },
   opacityAdjust: 0.7,      // opacidad de la imagen en la pantalla de ajustes
@@ -614,7 +614,7 @@ function toast(t) { const el = $('toast'); el.textContent = t; el.style.opacity 
 const selBox = $('imgSel');
 const sels = CONFIG.images.map((im, i) => {
   const b = document.createElement('button');
-  b.type = 'button'; b.className = 'sel'; b.textContent = 'IMAGE ' + im.name;
+  b.type = 'button'; b.className = 'sel'; b.textContent = im.label || ('IMAGE ' + im.name);
   b.addEventListener('click', () => {
     if (P.img === i) return;
     P.img = i; renderSel(); refreshDone();
