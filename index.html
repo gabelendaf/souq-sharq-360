@@ -12,7 +12,7 @@
   /* Diseño a escala 1 para iPad Pro 13" (1376×1032 en horizontal), el tamaño máximo.
      En pantallas menores --s baja de forma NO proporcional (hasta 0.75 en iPhone 16 Pro)
      para que los textos sigan siendo legibles; la maquetación se adapta para que no se pisen. */
-  :root{--s:1;--lift:0px;--side:0px}
+  :root{--s:1;--sb:1;--lift:0px;--side:0px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:#fff;overflow:hidden;overscroll-behavior:none;
     -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;color:#fff;
@@ -97,8 +97,8 @@
     pointer-events:auto;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.1)}
   #settingsBtn svg{width:calc(30px*var(--s));height:calc(18px*var(--s))}
   #settingsBtn:active{background:rgba(210,210,210,.85)}
-  #nightBtn{position:absolute;top:calc(93px*var(--s) + env(safe-area-inset-top));right:calc(70.5px*var(--s) + env(safe-area-inset-right));
-    width:calc(65.5px*var(--s));height:calc(65.5px*var(--s));border-radius:calc(16px*var(--s));pointer-events:auto;
+  #nightBtn{position:absolute;top:calc(93px*var(--sb) + env(safe-area-inset-top));right:calc(70.5px*var(--s) + env(safe-area-inset-right));
+    width:calc(65.5px*var(--sb));height:calc(65.5px*var(--sb));border-radius:calc(16px*var(--sb));pointer-events:auto;
     background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,.14));border:1px solid rgba(255,255,255,.45);
     -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
     box-shadow:0 1px 6px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.35);transition:background .3s}
@@ -212,6 +212,8 @@ function updateScale() {
   const k = clamp((short - SCALE_MIN.side) / (SCALE_MAX.side - SCALE_MIN.side), 0, 1);
   SC = SCALE_MIN.s + (SCALE_MAX.s - SCALE_MIN.s) * k;
   document.documentElement.style.setProperty('--s', SC.toFixed(4));
+  // el botón día/noche se reduce más en el móvil (55 % en iPhone 16 Pro, 100 % en iPad 13")
+  document.documentElement.style.setProperty('--sb', (0.55 + 0.45 * k).toFixed(4));
   fitLogo();
 }
 // El logo de Start se encoge si no cabe en el hueco disponible (p. ej. iPhone en horizontal)
