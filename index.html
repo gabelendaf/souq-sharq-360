@@ -82,8 +82,7 @@
     align-items:center;gap:clamp(8px,3vw,calc(105px*var(--s)));
     padding:0 calc(var(--side) + env(safe-area-inset-right)) 0 calc(var(--side) + env(safe-area-inset-left))}
   .txtbtn{flex:none;pointer-events:auto;font-size:calc(22px*var(--s));padding:calc(10px*var(--s)) calc(8px*var(--s));min-width:calc(84px*var(--s));transition:opacity .2s}
-  #done{opacity:.55}
-  #done.changed{opacity:1}
+  #done{font-weight:700;color:#fff}
   #dial{position:relative;flex:0 1 calc(542px*var(--s));min-width:calc(120px*var(--s));height:calc(48px*var(--s));pointer-events:auto;touch-action:none;
     -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%);
             mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%)}
@@ -190,9 +189,11 @@ const CONFIG = {
     { name: '02', src: 'panorama_02.jpg', night: 'panorama_02_NIGHT.jpg', rotation: 0 },
   ],
   fov:        { default: 60, min: 20, max: 120, perTick: 1 },
-  opacityAdjust: 0.5,      // opacidad de la imagen en la pantalla de ajustes
-  adjustBackground: 1,     // fondo bajo la imagen en ajustes: 1 = blanco, 0 = negro
-  fadeColor: 1,            // color de los fundidos: 1 = blanco, 0 = negro
+  opacityAdjust: 0.7,      // opacidad de la imagen en la pantalla de ajustes
+  // Colores en escala 0–1 (0 = negro, 1 = blanco). 186/255 = gris de la pantalla de inicio (#bababa)
+  adjustBackground: 186/255,   // fondo bajo la imagen en ajustes
+  fadeColor: 1,                // fundido de la pantalla de inicio a ajustes (blanco)
+  switchFadeColor: 186/255,    // fundido al cambiar entre IMAGE 01 e IMAGE 02 (gris)
   t: { hideStart: 250, logoOpen: 500, toBlack: 500, adjustIn: 500, imageFade: 500, toView: 400, dayNight: 1000 },
   designSize: [1376, 1032],  // iPad Pro 13" en horizontal
 };
@@ -246,7 +247,8 @@ const S = {
   screen: 'start', shown: P.img,
   ori: null, sensorOn: false, listening: false,
   calibPending: false, calibPhi: 0, touchYaw: 0, touchPitch: 0,
-  look: { op: CONFIG.opacityAdjust, lvl: 0 },   // op = opacidad sobre el fondo, lvl = fundido a negro
+  look: { op: CONFIG.opacityAdjust, lvl: 0 },
+  fadeC: CONFIG.fadeColor,      // color al que se funde ahora mismo   // op = opacidad sobre el fondo, lvl = fundido a negro
 };
 
 /* ================= WebGL ================= */
@@ -482,9 +484,12 @@ function showImage(i) {
   queue = queue.then(async () => {
     if (g !== gen) return;
     if (i !== S.shown) {
+      S.fadeC = CONFIG.switchFadeColor;
       await animTo({lvl: 0}, CONFIG.t.imageFade);
       if (g !== gen) return;
+      S.busy = true;
       await ensurePair(i);
+      S.busy = false;
       if (g !== gen) return;
       S.shown = i;
       releaseOthers(i);
@@ -563,6 +568,7 @@ function goHome() {
   starting = false;
   if (anim) { anim.res(); anim = null; }
   S.look = { op: CONFIG.opacityAdjust, lvl: 0 };
+  S.fadeC = CONFIG.fadeColor; S.busy = false;
   gen++; queue = Promise.resolve();
   S.shown = P.img;
   S.night = false; S.mix = 0; mixAnim = null; $('nightBtn').classList.remove('on');
@@ -698,8 +704,8 @@ function frame(now) {
   gl.viewport(0, 0, canvas.width, canvas.height);
   const im = CONFIG.images[S.shown];
   const tex = ready[im.src], texN = ready[im.night] || tex;
-  document.body.classList.toggle('loading', !tex);
-  if (S.screen === 'start' || !tex || S.look.lvl <= 0.001) { const c = CONFIG.fadeColor; gl.clearColor(c, c, c, 1); gl.clear(gl.COLOR_BUFFER_BIT); return; }
+  document.body.classList.toggle('loading', !tex || !!S.busy);
+  if (S.screen === 'start' || !tex || S.look.lvl <= 0.001) { const c = S.fadeC; gl.clearColor(c, c, c, 1); gl.clear(gl.COLOR_BUFFER_BIT); return; }
   const m = pitchLocal(rotZ(baseCols(), S.calibPhi + S.touchYaw), S.touchPitch);
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) rot[i*3 + j] = m[i][j];
   const tv = Math.tan(P.fov * D2R / 2), asp = canvas.clientWidth / Math.max(1, canvas.clientHeight);
@@ -713,7 +719,7 @@ function frame(now) {
   gl.uniform1f(U.uOpacity, S.look.op);
   gl.uniform1f(U.uBg, CONFIG.adjustBackground);
   gl.uniform1f(U.uLevel, S.look.lvl);
-  gl.uniform1f(U.uFadeC, CONFIG.fadeColor);
+  gl.uniform1f(U.uFadeC, S.fadeC);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
